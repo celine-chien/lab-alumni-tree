@@ -1,0 +1,38 @@
+---
+import '../styles/global.css';
+import { loadSiteConfig } from '@vsp/shared/site-config';
+interface Props { title?: string; description?: string }
+const site = loadSiteConfig();
+const { title = site.siteTitle, description = site.siteDescription } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#faf8f4" />
+    <title>{title}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="site-header">
+        <h1>
+          <a href="/">
+            <span>{site.professorName}</span>
+            <span>{site.labName}</span>
+            <span>校友族譜</span>
+          </a>
+        </h1>
+        <span class="sub">由校友共同補充</span>
+      </header>
+      <main>
+        <slot />
+      </main>
+      <footer style="padding: 40px 0 24px; color: var(--muted); font-size: 0.85rem;">
+        不需登入，任何人都可以補資料；所有修改都有紀錄、可還原。請勿填寫任何聯絡方式或個資。
+      </footer>
+    </div>
+  </body>
+</html>

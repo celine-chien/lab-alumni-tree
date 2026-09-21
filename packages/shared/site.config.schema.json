@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "lab-alumni-tree site config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "professorName": {
+      "type": "string",
+      "description": "教授名，含「教授」二字，例：王大明教授。頁首第一行"
+    },
+    "labName": {
+      "type": "string",
+      "description": "實驗室名稱，例：影像處理實驗室。頁首第二行；第三行固定是「校友族譜」"
+    },
+    "stackName": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9-]*$",
+      "description": "CloudFormation stack 名稱；同一 AWS 帳號架多站時要不同"
+    },
+    "ssmPrefix": {
+      "type": "string",
+      "pattern": "^/[A-Za-z0-9/_-]+$",
+      "description": "SSM Parameter Store 路徑前綴，暗號等秘密放在 <prefix>/passphrase-answer 等"
+    },
+    "awsRegion": {
+      "type": "string"
+    },
+    "awsAccount": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]{12}$",
+      "description": "選填。填了以後 deploy / secrets:init 會先比對目前 CLI 憑證的帳號，不符就中止"
+    }
+  },
+  "required": [
+    "professorName",
+    "labName",
+    "stackName",
+    "ssmPrefix",
+    "awsRegion"
+  ]
+}

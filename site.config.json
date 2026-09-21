@@ -1,0 +1,9 @@
+{
+  "$schema": "./packages/shared/site.config.schema.json",
+  "professorName": "○○教授",
+  "labName": "○○實驗室",
+  "stackName": "LabAlumniTree",
+  "ssmPrefix": "/lab-alumni-tree",
+  "awsRegion": "ap-northeast-1",
+  "awsAccount": null
+}

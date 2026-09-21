@@ -1,0 +1,33 @@
+{
+  "name": "@vsp/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "import": "tsx src/import-csv.ts",
+    "export": "tsx src/export-csv.ts",
+    "backup": "tsx src/backup.ts",
+    "admin": "tsx src/admin.ts",
+    "seed": "tsx src/seed.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "init-secrets": "tsx src/init-secrets.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.650.0",
+    "@vsp/api": "workspace:*",
+    "@vsp/shared": "workspace:*",
+    "chardet": "^2.2.0",
+    "csv-parse": "^7.0.2",
+    "csv-stringify": "^6.8.3",
+    "iconv-lite": "^0.7.3",
+    "@aws-sdk/client-sts": "^3.650.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "license": "MIT"
+}

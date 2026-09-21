@@ -1,0 +1,9 @@
+---
+import { loadSiteConfig } from '@vsp/shared/site-config';
+import Base from '../layouts/Base.astro';
+import { MergeForm } from '../components/MergeForm.jsx';
+import '../styles/forms.css';
+---
+<Base title={`合併重複資料 — ${loadSiteConfig().siteTitle}`}>
+  <MergeForm client:only="preact" />
+</Base>

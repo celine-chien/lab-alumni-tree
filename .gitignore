@@ -1,0 +1,17 @@
+node_modules/
+dist/
+cdk.out/
+.data/
+.env
+.env.local
+*.log
+.DS_Store
+backups/
+.astro/
+
+# 真實學生資料，不進 repo
+data/
+
+# 你這一站的設定（實驗室名稱、stack 名稱、AWS 帳號）與 CDK 部署輸出，不進 repo
+site.config.local.json
+packages/infra/cdk-outputs.json

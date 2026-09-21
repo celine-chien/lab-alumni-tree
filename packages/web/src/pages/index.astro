@@ -1,0 +1,13 @@
+---
+import Base from '../layouts/Base.astro';
+import { App } from '../components/App.jsx';
+import '../styles/home.css';
+---
+<Base>
+  <div class="cta" role="note">
+    <strong class="cta-title">📷 請大家至少上傳一張個人照片！（點自己的名字就能上傳）</strong>
+    <span class="cta-body">也請踴躍上傳團體照、聚餐合照，年份下方點「＋ 新增合照」</span>
+  </div>
+  <App client:load />
+  <noscript><p class="notice">這個網站需要開啟 JavaScript 才能顯示名單。</p></noscript>
+</Base>

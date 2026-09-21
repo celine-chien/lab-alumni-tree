@@ -1,0 +1,9 @@
+---
+import { loadSiteConfig } from '@vsp/shared/site-config';
+import Base from '../layouts/Base.astro';
+import { EditForm } from '../components/EditForm.jsx';
+import '../styles/forms.css';
+---
+<Base title={`編輯資料 — ${loadSiteConfig().siteTitle}`}>
+  <EditForm client:only="preact" />
+</Base>

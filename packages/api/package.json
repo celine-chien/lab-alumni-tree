@@ -1,0 +1,36 @@
+{
+  "name": "@vsp/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/app.ts",
+  "exports": {
+    ".": "./src/app.ts",
+    "./store": "./src/store/index.ts",
+    "./blobs": "./src/blobs/index.ts",
+    "./config": "./src/config.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/dev.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.650.0",
+    "@aws-sdk/client-s3": "^3.650.0",
+    "@aws-sdk/client-ssm": "^3.650.0",
+    "@aws-sdk/lib-dynamodb": "^3.650.0",
+    "@aws-sdk/s3-request-presigner": "^3.650.0",
+    "@hono/node-server": "^1.13.0",
+    "@vsp/shared": "workspace:*",
+    "hono": "^4.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "license": "MIT"
+}

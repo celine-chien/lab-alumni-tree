@@ -1,0 +1,18 @@
+{
+  "_說明": "欄位對應：左邊是系統欄位，右邊是 CSV 的欄名。論文系統格式請填 degree / thesisTitle / degreeStart / degreeEnd；一列一人格式請填 masterStart 等。年份為民國時 yearFormat 設 roc。",
+  "columns": {
+    "personId": "personId",
+    "nameZh": "研究生",
+    "nameEn": "研究生(英)",
+    "yearJoined": "",
+    "degree": "學位類別",
+    "thesisTitle": "論文名稱",
+    "degreeStart": "入學學年度",
+    "degreeEnd": "畢業學年度",
+    "currentStatus": ""
+  },
+  "degreeValues": { "master": ["碩士", "碩士論文", "M"], "phd": ["博士", "博士論文", "D"] },
+  "yearFormat": "roc",
+  "yearJoinedFromDegreeStart": true,
+  "skipRows": 0
+}
