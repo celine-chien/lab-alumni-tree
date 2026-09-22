@@ -7,6 +7,11 @@
 不需登入，校友答對一個「只有實驗室的人才知道」的暗號就能補資料；所有修改都有紀錄、可還原。
 設計：字大、快、零操作門檻。
 
+<p align="center">
+  <img src="docs/screenshot-desktop.jpg" width="640" alt="年份展開後的格狀清單：每人一張卡片，寫著學位徽章與缺什麼；下方是該年份的合照帶">
+  <img src="docs/screenshot-mobile.jpg" width="230" alt="手機上的人物面板：空欄位寫「＋ 新增」，可左右切換同屆">
+</p>
+
 > **English:** A crowd-sourced alumni directory for a university research lab. Students are listed by the year they joined; anyone who answers a lab-insider passphrase can edit, every change is versioned and revertable. Static Astro front-end + a small Hono API on AWS Lambda/DynamoDB/S3, deployed with CDK. Copy `site.config.json`, run `pnpm deploy`, and you have your own. Docs are in Traditional Chinese; the code comments too. PRs welcome.
 
 
