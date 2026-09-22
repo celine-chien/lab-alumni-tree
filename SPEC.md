@@ -1,16 +1,16 @@
-# 實驗室校友族譜網站 — 開發規格
+# 實驗室校友族譜網站 — 設計說明
 
-2026-09-20 · @Celine
+這份文件說明**這個網站為什麼長這樣**：資料模型的語意、畫面規則、無登入帶來的機制，以及第一版刻意不做的事。安裝、部署與日常操作見 [README](./README.md)。改任何行為前，先看這裡有沒有寫理由。
 
 ## 1. 專案目的與設計原則
 
-建立一個公開網站，整理實驗室教授歷年指導的研究生名單，讓教授看到他的學生「族譜」。資料由實驗室校友共同建立與補充，不依賴單一負責人統一輸入。資料無機密性，不需登入即可瀏覽與編輯。
+建立一個公開網站，整理實驗室教授歷年指導的研究生名單，讓教授與校友看到這個實驗室的「族譜」。資料由校友共同建立與補充，不依賴單一負責人統一輸入。資料無機密性，不需登入即可瀏覽與編輯。
 
 ### 使用者
 
 | 角色 | 情境 | 對設計的要求 |
 | --- | --- | --- |
-| 教授（主要讀者） | 滑著看，可能使用較舊的手機 | 快、字大、不要求任何操作 |
+| 教授與校友（讀者） | 大多在手機上滑著看，常是別人傳來的連結，點開就要看到 | 快、字大、不要求任何操作 |
 | 校友（貢獻者） | 零碎時間補一筆資料或傳一兩張老照片 | 手機優先、步驟極短、隨時可中斷 |
 | 專案擁有者 | 執行 CSV 匯入、處理不當內容 | script 與管理後門，不開放給一般使用者 |
 
@@ -175,7 +175,7 @@ flowchart LR
 - **開啟時必須鎖住背景捲動。** 否則手機上滑面板內容時背景清單會跟著跑，這是 bottom sheet 最常見的 bug。
 - 關閉後回到原位置，因為底層清單從未移動，不需要還原捲動位置。
 
-**博士入學年與入實驗室年不同時，不在博士那年另外顯示卡片。** 每人只在入實驗室年出現一次，卡片上掛碩、博兩個徽章，。
+**博士入學年與入實驗室年不同時，不在博士那年另外顯示卡片。** 每人只在入實驗室年出現一次，卡片上掛碩、博兩個徽章。
 
 ### 編輯表單（獨立頁 `/p/xxxxxx/edit`）
 
@@ -222,7 +222,9 @@ flowchart LR
 
 **上限滿了要明確提示「請先刪一張」，不可靜默失敗。** 無登入網站的錯誤訊息必須直白。
 
-**前端自動壓縮，長邊約 1600px。** 這是老照片翻拍，手機直拍檔案動輒 5MB；不壓縮會拖垮 S3 費用與載入速度。壓縮後再取得 presigned URL 上傳。
+**前端自動壓縮：原圖長邊約 1600px、縮圖約 400px，輸出 JPEG。** 這是老照片翻拍，手機直拍檔案動輒 5MB；不壓縮會拖垮 S3 費用與載入速度。
+
+**上傳走同網域的 `POST /api/upload`（multipart，兩個檔一起送），由 Lambda 寫入 S3。** 原本設計是 presigned URL 讓瀏覽器直傳 S3，但 iOS Safari 對跨網域 PUT S3 會出現「Load failed」；改成同網域後完全不需要 CORS。此規模（每張 < 1MB、總量數百張）多經過一層 Lambda 的成本可忽略。後端只接受 JPEG / WebP、原圖 ≤ 4MB、縮圖 ≤ 600KB，key 的格式由後端決定（`persons/<personId>/<photoId>.jpg`、`groups/<year>/<photoId>.jpg`，縮圖加 `_t`），前端拿到 key 之後再呼叫建立紀錄的端點，後端會確認物件真的存在。
 
 ### 刪除
 
@@ -242,7 +244,7 @@ flowchart LR
 
 ### 寫入驗證（暗號題）
 
-**瀏覽完全不需要通過任何關卡。** 打開網址直接看到內容，零阻礙——教授是主要讀者，不能讓他一進站就被考試；校友分享 `/p/xxxxxx` 連結時，對方點進去也必須直接看到資料。
+**瀏覽完全不需要通過任何關卡。** 打開網址直接看到內容，零阻礙——多數人是從別人傳來的 `/p/xxxxxx` 連結點進來的，只想看一眼，一進站就被考試會直接離開。
 
 **第一次寫入時才出題。** 按下「儲存」或「上傳照片」時跳出一題：
 
@@ -256,11 +258,13 @@ flowchart LR
 
 ### Rate limit
 
-所有寫入端點加上頻率限制，以 IP 為單位即可。
+所有寫入端點加上頻率限制，以 IP 為單位：寫入每 IP 每分鐘 30 次，答暗號每 IP 每分鐘 15 次。計數存在 DynamoDB 同一張表（`RATE#<ip>`，帶 TTL 自動清除）。
+
+**來源 IP 只信任 CloudFront。** API Gateway 的原生網址是公開可達的，任何人都能自己填 `CloudFront-Viewer-Address` 或 `X-Forwarded-For`。所以 CloudFront 打到 API 時會帶一個 `X-Origin-Verify` header（值放 SSM，由 CDK 部署時注入），Lambda 只在這個 header 對得上時才採信 viewer address，否則用 API Gateway 記錄的真實來源 IP。繞過 CloudFront 的人，被限制的就是他自己的 IP。
 
 ### 管理者後門
 
-一組獨立密鑰（與暗號不同），可隱藏或刪除任何內容。
+一組獨立密鑰（與暗號不同），透過 `POST /api/admin/hide` 隱藏或恢復任何內容（人、合照、個人照）；README 有對應的 `pnpm admin` 指令。
 
 用途是：有人在「現況」欄位填了手機號碼時，擁有者能在三十秒內處理掉，不必改程式重新部署。表單上的「請勿輸入任何個資」提示擋不住決心要填的人，真正有效的是能立刻刪除。
 
@@ -292,7 +296,9 @@ flowchart LR
 
 ### 欄位對應
 
-實際欄位名需看到真實 CSV 後才能確定。script 應以設定檔或 CLI 參數指定對應關係，不要寫死在程式裡。
+欄位對應放在設定檔 `import.config.json`（範本 `packages/scripts/import.config.example.json`），不寫死在程式裡。支援兩種來源格式：「一列一人」直接對應 Person 欄位；「一列一本論文」則設定 `degree` / `thesisTitle` / `degreeStart` / `degreeEnd` 四欄，script 依姓名合併。年份可設為民國（`yearFormat: "roc"`）。
+
+**「一列一人」格式的空白格代表「不動」而非「清空」。** 匯出 → Excel 改幾格 → 匯回的流程裡，若空白會清空欄位，就會把別人在網站上填的東西洗掉。
 
 ## 7. 技術架構與 API
 
@@ -300,49 +306,62 @@ flowchart LR
 
 | 層 | 技術 | 理由 |
 | --- | --- | --- |
-| 前端 | Astro + 少量原生 JS 或 Alpine | 瀏覽部分幾乎全靜態，Astro 預設輸出零 JS，舊手機也快 |
-| 部署 | S3 + CloudFront | 靜態產出 |
-| API | API Gateway + Lambda |  |
-| 資料庫 | DynamoDB 單表 | 資料量極小 |
-| 圖片 | S3 + presigned upload | 前端壓縮後直傳 |
+| 前端 | Astro 靜態輸出 + Preact islands | 瀏覽部分幾乎全靜態，只有面板、表單、上傳、修改紀錄四處需要互動，用 island 局部載入即可，不需整站 SPA。不用 Nuxt 之類的 SSR 框架：此站只有三頁、資料三百筆，用不到路由與 SSR |
+| 靜態站 | S3 + CloudFront | 一個 CloudFront Function 把 `/p/xxxxxx`、`/new` 等前端路由改寫到對應的 `index.html` |
+| API | API Gateway (HTTP API) + Lambda (Node 22, ARM) + Hono | 同一份 Hono app 在本機用 `@hono/node-server` 跑、在 Lambda 用 `hono/aws-lambda`；Store 與 Blobs 是介面，本機是 JSON 檔與資料夾 |
+| 資料庫 | DynamoDB 單表，on-demand | 資料量極小，免費額度內；開 point-in-time recovery |
+| 照片 | S3（私有，經 CloudFront OAC 讀取），上傳經 Lambda | 見第 4 節，不用 presigned URL |
+| 秘密 | SSM Parameter Store | 暗號、token secret、管理密鑰、origin secret；Lambda 每 60 秒重讀，改暗號不必重新部署 |
+| 部署 | AWS CDK (TypeScript) | 一個 stack；DynamoDB table 與照片 bucket 設 `RETAIN` |
 
-只有四處需要互動：面板開關與左右滑、照片上傳、編輯表單、修改紀錄。用 Astro island 局部載入即可，不需要整站掛 SPA framework。Nuxt 3 的價值在 SSR 與路由，此站只有兩頁、資料三百筆，用不到。
+同一個 CloudFront 網域下：`/` 與前端路由 → 靜態站、`/api/*` → API Gateway、`/photos/*` → 照片 bucket。全部同網域，沒有任何 CORS。
 
-### 部署帳號
+### 站台設定
 
-AWS 帳號、region、stack 名稱、SSM 前綴都由 `site.config.json`（疊上不進 git 的 `site.config.local.json`）決定。`awsAccount` 若有填，deploy 與 `secrets:init` 會先比對目前 CLI 憑證的帳號，不符就中止。
+實驗室名稱、CloudFormation stack 名稱、SSM 前綴、AWS region／帳號都由 `site.config.json`（進 git，放通用預設值）疊上 `site.config.local.json`（不進 git，放你這一站的值）決定。`awsAccount` 若有填，deploy 與 `secrets:init` 會先比對目前 CLI 憑證的帳號，不符就中止——避免部署到錯的帳號。
 
 ### 資料取得策略
 
-**開頁時打一次 API 撈回全部 Person，之後全在記憶體裡篩年份。** 不採用建置時打包靜態資料，因為眾包網站資料隨時在變，build 一次就過期。三百筆 JSON 壓縮後約二三十 KB，一次撈完比分頁簡單。
+**開頁時打一次 API 撈回全部 Person，之後全在記憶體裡篩年份。** 不採用建置時打包靜態資料，因為眾包網站資料隨時在變，build 一次就過期。三百筆 JSON 壓縮後約二三十 KB，一次撈完比分頁簡單。團體照與修改紀錄則在展開年份／開啟面板時才撈。
 
 ### DynamoDB 單表設計
 
-| 項目 | PK | SK | 說明 |
-| --- | --- | --- | --- |
-| Person | `PERSON#<personId>` | `META` | photos 為 list 屬性 |
-| GroupPhoto | `PHOTO#<photoId>` | `META` |  |
-| Revision | `PERSON#<personId>` | `REV#<timestamp>` | 修改紀錄 |
+| 項目 | PK | SK | GSI1PK / GSI1SK | GSI2PK / GSI2SK |
+| --- | --- | --- | --- | --- |
+| Person | `PERSON#<personId>` | `META` | `YEAR#<year>` / `PERSON#<id>` | `PERSON` / `updatedAt` |
+| GroupPhoto | `PHOTO#<photoId>` | `META` | `YEAR#<year>` / `PHOTO#<id>` | `GROUP_PHOTO` / `uploadedAt` |
+| Revision | `PERSON#<id>` 或 `PHOTO#<id>` | `REV#<ts>#<rand>` | `RECENT` / `<ts>#<rand>` | — |
+| RateLimit | `RATE#<ip>` | `<時間桶>` | —（有 `ttl`） | — |
 
-GSI1：`GSI1PK = YEAR#<year>` 用於查某年份的 Person 與 GroupPhoto。
+- GSI1：依年份查某年的 Person / GroupPhoto；`GSI1PK = RECENT` 給「最近更新」倒序取前幾筆。
+- GSI2：列出全部 Person（開頁一次撈完），不用 Scan 才不會掃到 revision。
+- 隱藏（軟刪除）只是 `status = hidden`，列表時過濾掉；合併掉的那筆額外記 `mergedInto` 讓舊連結可轉址。
+- Revision 的 `before` 是改前的完整內容，還原 = 把某筆 `before` 當成新內容再存一次。
 
 ### API 端點
 
-| Method | Path | 說明 | 需暗號 |
+| Method | Path | 說明 | 需要 |
 | --- | --- | --- | --- |
-| GET | `/api/persons` | 取回全部 Person | 否 |
-| GET | `/api/persons/:id` | 單筆（含 revisions） | 否 |
-| POST | `/api/persons` | 新增 | 是 |
-| PUT | `/api/persons/:id` | 更新 | 是 |
-| POST | `/api/persons/merge` | 合併兩筆 | 是 |
-| GET | `/api/photos?year=` | 該年份團體照 | 否 |
-| POST | `/api/upload-url` | 取得 presigned URL | 是 |
-| POST | `/api/photos` | 建立團體照紀錄 | 是 |
-| DELETE | `/api/photos/:id` | 軟刪除 | 是 |
-| GET | `/api/recent` | 最近更新數筆 | 否 |
-| POST | `/api/admin/hide` | 管理者隱藏內容 | 管理密鑰 |
+| GET | `/api/persons` | 全部 Person（不含 hidden） | — |
+| GET | `/api/persons/:id` | 單筆（含 hidden，含 revisions） | — |
+| POST | `/api/persons` | 新增 | 暗號 |
+| PUT | `/api/persons/:id` | 更新；body 帶 `restoreOf` 即為還原（照片一併還原） | 暗號 |
+| POST | `/api/persons/merge` | 合併兩筆 | 暗號 |
+| POST | `/api/persons/:id/photos` | 建立個人照紀錄（上傳完成後） | 暗號 |
+| DELETE | `/api/persons/:id/photos?key=` | 移除個人照（S3 不刪，revision 可還原） | 暗號 |
+| POST | `/api/upload?kind=person&personId=` / `?kind=group&year=` | multipart 上傳原圖＋縮圖，回 key | 暗號 |
+| GET | `/api/photos?year=` | 該年份團體照 | — |
+| POST | `/api/photos` | 建立團體照紀錄 | 暗號 |
+| PUT | `/api/photos/:id` | 改合照說明 | 暗號 |
+| DELETE | `/api/photos/:id` | 軟刪除 | 暗號 |
+| GET | `/api/recent?limit=` | 最近更新數筆 | — |
+| GET | `/api/verify/question` | 取暗號題目 | — |
+| POST | `/api/verify` | 答暗號，回 token | rate limit |
+| POST | `/api/admin/hide` | 管理者隱藏／恢復 | 管理密鑰 |
 
-所有寫入端點：驗暗號 → rate limit → 寫入 → append revision → 更新 `updatedAt`。
+所有寫入端點固定順序：驗 token → rate limit → 讀改前內容 → 寫入 → append revision。token = HMAC(tokenSecret, 正規化後的答案)，換題或換 secret 即讓所有 token 失效。
+
+欄位語意與驗證規則以 `packages/shared/src/types.ts`、`schema.ts` 為準，兩邊註解都有寫理由。
 
 ## 8. 第一版不做的事
 
@@ -350,9 +369,9 @@ GSI1：`GSI1PK = YEAR#<year>` 用於查某年份的 Person 與 GroupPhoto。
 
 | 項目 | 排除理由 |
 | --- | --- |
-| 碩士／博士分兩畋頁面 | 人只有一個、學位可以有多個。碩博連讀者被拆成兩頁，教授看到的是兩個人，族譜反而斷了 |
+| 碩士／博士分兩個頁面 | 人只有一個、學位可以有多個。碩博連讀者被拆成兩頁，教授看到的是兩個人，族譜反而斷了 |
 | 團體照標記人物 | 省掉跨年份搜尋介面、標記編輯、兩種刪除權限與一層資料關聯。族譜核心是年份與人，這兩件事一張都沒少 |
-| 照片可標多個年份 | 會產生「從這一年移除，還是整張刪掉」兩種刪除語意。改為上傳兩次，複製成本遠低於維護ꈐ本 |
+| 照片可標多個年份 | 會產生「從這一年移除，還是整張刪掉」兩種刪除語意。改為上傳兩次，複製成本遠低於維護成本 |
 | 獨立的相簿頁面 | 照片一旦離開年份主軸，就變成散落的影像，而非「1985 那一屆的樣子」。且需自建一套分類與導覽 |
 | 匯出可列印的族譜圖 | 最完整的資料在教授手上（手寫）。此站不需承擔完整性責任 |
 | 備註欄位 | 相關內容併入「現況」 |
@@ -360,9 +379,3 @@ GSI1：`GSI1PK = YEAR#<year>` 用於查某年份的 Person 與 GroupPhoto。
 | 使用者登入 | 資料無機密性，登入會直接殺死眾包意願 |
 | email / 電話欄位 | 公開頁面放聯絡資訊等於送給爬蟲 |
 | 年份是否「確實沒收學生」的標記 | 需要額外一張年份備註表。第一版不做，日後可加 |
-
-### 待確認
-
-- 實際 CSV 的欄位名稱與編碼，需拿到真實檔案後才能定案
-- 寫入暗號的實際內容
-- 視覺風格（字體、配色）——原則是簡約、mobile first、字級偏大

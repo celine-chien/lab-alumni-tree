@@ -15,6 +15,7 @@ Please **do not** open a public issue. Use GitHub private vulnerability reportin
 - 寫入靠一個**共享暗號**（實驗室內部才知道的問題）換取 token；再加一組獨立的**管理密鑰**給站長隱藏內容用。
 - 沒有帳號、沒有個人權限：任何知道暗號的人都能改所有人的資料。
 - 補救機制是**所有修改都有紀錄、可還原**，照片一律軟刪除；DynamoDB 開 point-in-time recovery。
+- Rate limit 以來源 IP 計算。API Gateway 原生網址雖然公開可達，但 Lambda 只在請求帶有 CloudFront 注入的 `X-Origin-Verify`（值在 SSM）時才採信 `CloudFront-Viewer-Address`，否則用 API Gateway 記錄的真實來源 IP，偽造 header 無法繞過。
 
 因此以下**不在**防護範圍內，回報前請先確認不是設計如此：
 

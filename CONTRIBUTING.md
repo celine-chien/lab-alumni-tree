@@ -1,6 +1,6 @@
 # 參與開發 / Contributing
 
-謝謝你想幫忙。這個專案的目標是**讓任何一個實驗室都能在一小時內架起自己的校友族譜**，所以改動的原則是：通用優先、簡單優先、教授用舊手機也要順。
+謝謝你想幫忙。這個專案的目標是**讓任何一個實驗室都能在一小時內架起自己的校友族譜**，所以改動的原則是：通用優先、簡單優先、手機上要快。
 
 ## 開發環境
 
@@ -8,9 +8,8 @@
 
 ```bash
 pnpm install
-cp .env.example .env
 pnpm --filter @vsp/scripts seed   # 20 筆假資料
-pnpm dev                          # API :8787 + 前端 :4321
+pnpm dev                          # API :8787 + 前端 :4321；暗號 ABC（要改就 cp .env.example .env）
 ```
 
 送 PR 前：
@@ -36,7 +35,7 @@ pnpm --filter @vsp/web build
 - 不要把實驗室名稱、AWS 帳號、網址寫死在程式裡；那些屬於 `site.config.local.json`。
 - 動到資料模型（`packages/shared/src/types.ts`）要一併更新 zod schema、DynamoDB store、CSV 匯入匯出與測試。
 - 動到 infra 請貼 `cdk diff` 摘要；DynamoDB table 與照片 bucket 是 `RETAIN`，任何會 replace 它們的改動都不能合併。
-- UI 改動請在手機寬度與深色模式下看過。字級不要縮小——使用者是退休教授。
+- UI 改動請在手機寬度與深色模式下看過。字級不要縮小——字大、快、操作簡單是這個網站的基本品質，不是可以拿來換版面的東西。
 - Commit message 用什麼語言都可以，說清楚「為什麼」比「改了什麼」重要。
 
 ## 行為準則

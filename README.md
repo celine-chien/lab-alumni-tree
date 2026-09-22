@@ -65,7 +65,7 @@ packages/
   scripts/  CSV 匯入／匯出、備份、管理者後門、秘密參數初始化、本機假資料
 ```
 
-設計理由與規格見 [SPEC.md](./SPEC.md)。
+每個設計決策的理由見 [SPEC.md](./SPEC.md)。
 
 網址結構（CloudFront Function 改寫到靜態 HTML）：
 
@@ -81,6 +81,8 @@ packages/
 
 照片上傳走同網域 `POST /api/upload`（multipart，Lambda 寫入 S3），**不用 presigned URL**：iOS Safari 對跨網域 PUT S3 會出現「Load failed」，同網域完全避開 CORS。此規模經過 Lambda 的成本可忽略。
 
+API Gateway 的原生網址是公開可達的，所以 CloudFront 打到 API 時會帶一個 `X-Origin-Verify` header（值放 SSM `<ssmPrefix>/origin-secret`，由 `secrets:init` 建立、CDK 部署時注入）。Lambda 只在這個 header 對得上時才採信 `CloudFront-Viewer-Address` 做 rate limit，繞過 CloudFront 直接打 API Gateway 的人偽造不了自己的 IP。
+
 ### 安全模型
 
 寫入靠一個共享暗號 + 一組站長用的管理密鑰，沒有帳號系統；補救靠修改紀錄與軟刪除。這是刻意的取捨，細節與「哪些不在防護範圍」見 [SECURITY.md](./SECURITY.md)。網站上明確要求不要填任何聯絡方式或個資。
@@ -89,11 +91,11 @@ packages/
 
 ```bash
 pnpm install
-cp .env.example .env        # 本機暗號 ABC、管理密鑰 dev-admin-key
 pnpm --filter @vsp/scripts seed   # 可選：20 筆假資料
 pnpm dev                    # API :8787 + Astro :4321（被占用時會往後找）
 ```
 
+打開 http://localhost:4321 。本機暗號答案是 `ABC`、管理密鑰 `dev-admin-key`；想改就 `cp .env.example .env` 再編輯（沒有 `.env` 也能跑，用預設值）。
 本機資料在 `.data/db.json`，照片在 `.data/photos/`，都不進 git。本機不讀 `site.config.local.json` 的 AWS 欄位，但標題會用。
 
 ```bash
@@ -109,11 +111,20 @@ pnpm deploy                   # build 前端 + cdk deploy
 ```
 
 `packages/infra/cdk-outputs.json`（不進 git）會被 scripts 讀取（table 名稱、網址）。
-改程式後重新 `pnpm deploy` 即可；DynamoDB table 與照片 bucket 是 `RETAIN`，不會因為重新部署而消失。
+改程式後（或 `git pull` 拿到新版後）重新 `pnpm deploy` 即可；DynamoDB table 與照片 bucket 是 `RETAIN`，不會因為重新部署而消失。
+
+### 移除站台
+
+```bash
+pnpm backup --store dynamo                 # 先留一份
+pnpm --filter @vsp/infra exec cdk destroy  # 刪掉 stack
+```
+
+DynamoDB table 與照片 bucket 因為是 `RETAIN`，`cdk destroy` 之後仍留在帳號裡（會繼續產生極少量費用），確定不要了請到 AWS 主控台手動刪除；SSM 參數同理（`aws ssm delete-parameter`）。
 
 ### 改暗號／管理密鑰
 
-值放在 SSM Parameter Store（前綴 = `ssmPrefix`），Lambda 每 60 秒重讀，**不需重新部署**：
+`secrets:init` 會在 SSM Parameter Store（前綴 = `ssmPrefix`）建立五個參數：`passphrase-question`、`passphrase-answer`、`token-secret`、`admin-key`、`origin-secret`；已存在的不會覆蓋。前四個 Lambda 每 60 秒重讀，改了**不需重新部署**：
 
 ```bash
 P=/lab-alumni-tree   # 換成你的 ssmPrefix
@@ -122,7 +133,7 @@ aws ssm put-parameter --name $P/passphrase-answer --value XYZ --type String --ov
 aws ssm get-parameter --name $P/admin-key --with-decryption --query Parameter.Value --output text
 ```
 
-換暗號會讓所有已發出的 token 失效（大家再答一次即可）。
+換暗號會讓所有已發出的 token 失效（大家再答一次即可）。`origin-secret` 是 CloudFront ↔ API 之間的驗證值，改了要重新 `pnpm deploy` 才會生效。
 
 ## 維護
 
@@ -166,7 +177,16 @@ pnpm import --file data.csv --config import.config.json --store dynamo --commit 
 pnpm export --out persons.csv --store dynamo
 ```
 
+## 常見問題
+
+- **`pnpm deploy` 說「目前 AWS 憑證指向帳號 …，但 site.config 指定 …」**：CLI 用錯 profile。`export AWS_PROFILE=xxx` 或把 `site.config.local.json` 的 `awsAccount` 改對。
+- **`pnpm deploy` 說 `Unable to fetch parameters [/xxx/origin-secret]` 或參數不存在**：這是 2026-09 之後才加的參數。跑一次 `pnpm secrets:init`（只補缺的，不動既有值）再 deploy。
+- **`cdk deploy` 抱怨沒有 bootstrap / `SSM parameter /cdk-bootstrap/...` not found**：每個帳號＋region 第一次都要跑 `pnpm --filter @vsp/infra exec cdk bootstrap`。
+- **網站打開是空的、或 API 回 500**：Lambda 讀不到 SSM 參數。跑 `pnpm secrets:init` 建齊四個參數，60 秒內生效。
+- **剛部署完網頁還是舊的**：CloudFront 快取。`pnpm deploy` 會自動 invalidate，但可能要等一兩分鐘；HTML 本身不快取，`_astro/` 底下的檔名有 hash。
+- **`pnpm import` 說找不到 table**：需要 `packages/infra/cdk-outputs.json`（由 `pnpm deploy` 產生）。在另一台機器執行時加 `--table <TableName>`。
+- **想換網域**：目前沒內建，要自己在 `packages/infra/lib/vsp-stack.ts` 的 `Distribution` 加 `certificate`（ACM，必須在 us-east-1）與 `domainNames`，再到 DNS 加 CNAME。
+
 ## 資料模型與 API
 
-見 `packages/shared/src/types.ts`（欄位語意都寫在註解）與 `packages/api/src/app.ts`。
-比 SPEC 多的端點：`POST/DELETE /api/persons/:id/photos`（個人照在面板內即時上傳）、`PUT /api/photos/:id`（改合照說明）、`POST /api/verify`（暗號）；`POST /api/upload-url` 改為 `POST /api/upload`（見上）。
+端點一覽與 DynamoDB 單表設計見 [SPEC.md 第 7 節](./SPEC.md#7-技術架構與-api)；欄位語意以 `packages/shared/src/types.ts` 的註解為準，驗證規則在 `schema.ts`，路由在 `packages/api/src/app.ts`。

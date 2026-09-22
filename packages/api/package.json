@@ -11,7 +11,7 @@
     "./config": "./src/config.ts"
   },
   "scripts": {
-    "dev": "tsx watch --env-file=../../.env src/dev.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/dev.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -20,7 +20,6 @@
     "@aws-sdk/client-s3": "^3.650.0",
     "@aws-sdk/client-ssm": "^3.650.0",
     "@aws-sdk/lib-dynamodb": "^3.650.0",
-    "@aws-sdk/s3-request-presigner": "^3.650.0",
     "@hono/node-server": "^1.13.0",
     "@vsp/shared": "workspace:*",
     "hono": "^4.6.0",

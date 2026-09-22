@@ -15,3 +15,6 @@ data/
 # 你這一站的設定（實驗室名稱、stack 名稱、AWS 帳號）與 CDK 部署輸出，不進 repo
 site.config.local.json
 packages/infra/cdk-outputs.json
+
+# CSV 匯入的欄位對應（依你們的 CSV 客製，通常含實驗室專屬欄名）
+import.config.json
