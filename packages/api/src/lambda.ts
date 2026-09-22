@@ -8,6 +8,7 @@ const app = createApp({
   store: new DynamoStore(process.env.TABLE_NAME!),
   blobs: new S3Blobs(process.env.PHOTOS_BUCKET!),
   secrets: ssmSecrets(),
+  originSecret: process.env.ORIGIN_SECRET,
 });
 
 export const handler = handle(app);

@@ -10,6 +10,8 @@ import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { originSecretParamName } from '@vsp/shared/site-config';
 import type { SiteConfig } from '@vsp/shared/site-config';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -62,6 +64,11 @@ export class VspStack extends Stack {
     });
 
     /* ---------- Lambda + HTTP API ---------- */
+    // CloudFront → API Gateway 的驗證 header。API Gateway 原生網址是公開的，Lambda 只在這個 header 對得上時
+    // 才信任 CloudFront-Viewer-Address 做 rate limit，否則用 API Gateway 看到的來源 IP（見 api/src/app.ts clientIp）。
+    // 值由 secrets:init 建在 SSM，deploy 時解析；同時給 Lambda（環境變數）與 CloudFront（自訂 origin header）。
+    const originSecret = ssm.StringParameter.valueForStringParameter(this, originSecretParamName(site));
+
     const fn = new NodejsFunction(this, 'ApiFn', {
       entry: resolve(root, 'packages/api/src/lambda.ts'),
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -72,6 +79,7 @@ export class VspStack extends Stack {
         TABLE_NAME: table.tableName,
         PHOTOS_BUCKET: photosBucket.bucketName,
         SSM_PREFIX: site.ssmPrefix,
+        ORIGIN_SECRET: originSecret,
         NODE_OPTIONS: '--enable-source-maps',
       },
       bundling: {
@@ -136,7 +144,11 @@ export class VspStack extends Stack {
       },
       additionalBehaviors: {
         '/api/*': {
-          origin: new origins.HttpOrigin(apiDomain, { protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY }),
+          origin: new origins.HttpOrigin(apiDomain, {
+            protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+            // 自訂 origin header 一律轉送，不受上面 allowList 限制
+            customHeaders: { 'X-Origin-Verify': originSecret },
+          }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,

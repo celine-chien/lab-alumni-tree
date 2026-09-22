@@ -38,6 +38,15 @@ export function findRepoRoot(from = process.cwd()): string {
   }
 }
 
+/**
+ * CloudFront → API Gateway 的驗證 header 所用的秘密，放在 SSM <ssmPrefix>/origin-secret。
+ * 由 secrets:init 建立、CDK 在 deploy 時讀出，同時塞給 CloudFront（自訂 origin header）與 Lambda（環境變數）。
+ * Lambda 只在 header 對得上時才信任 CloudFront-Viewer-Address；直接打 API Gateway 原生網址的人偽造不了 IP，繞不過 rate limit。
+ */
+export function originSecretParamName(site: Pick<SiteConfigInput, 'ssmPrefix'>): string {
+  return `${site.ssmPrefix}/origin-secret`;
+}
+
 const REQUIRED: (keyof SiteConfigInput)[] = ['professorName', 'labName', 'stackName', 'ssmPrefix', 'awsRegion'];
 
 function readJson(path: string): Partial<SiteConfigInput> {

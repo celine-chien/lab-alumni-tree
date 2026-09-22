@@ -195,4 +195,27 @@ describe('rate limit', () => {
     expect((await req('/api/persons', { method: 'POST', body })).status).toBe(201);
     expect((await req('/api/persons', { method: 'POST', body })).status).toBe(429);
   });
+
+  it('偽造 CloudFront-Viewer-Address 繞不過：沒有 X-Origin-Verify 就不採信', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsp-'));
+    app = createApp({ store: new FileStore(join(dir, 'db.json')), blobs, secrets, writeRateLimit: 2, originSecret: 'cf-secret' });
+    const post = (ip: string, verify?: string) =>
+      app.request('/api/persons', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-write-token': token,
+          'cloudfront-viewer-address': `${ip}:12345`,
+          ...(verify ? { 'x-origin-verify': verify } : {}),
+        },
+        body: JSON.stringify({ nameZh: 'X', yearJoined: 1980 }),
+      });
+    // 直接打 API Gateway、每次換一個假 IP：全部落在同一個桶，第三次就被擋
+    expect((await post('10.0.0.1')).status).toBe(201);
+    expect((await post('10.0.0.2', 'wrong')).status).toBe(201);
+    expect((await post('10.0.0.3')).status).toBe(429);
+    // 真的經過 CloudFront（header 對得上）：不同 viewer IP 各自計算
+    expect((await post('10.0.0.4', 'cf-secret')).status).toBe(201);
+    expect((await post('10.0.0.5', 'cf-secret')).status).toBe(201);
+  });
 });

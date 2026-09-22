@@ -28,12 +28,19 @@ export interface AppDeps {
   secrets: SecretsProvider;
   /** 每個 IP 每分鐘允許的寫入次數 */
   writeRateLimit?: number;
+  /**
+   * CloudFront 對 API origin 加的 X-Origin-Verify header 值（正式環境由 CDK 從 SSM 帶進環境變數）。
+   * 有設定時，只有帶正確 header 的請求才信任 CloudFront-Viewer-Address；否則用 API Gateway 看到的來源 IP。
+   * 沒設定（本機、測試）則一律信任 header。
+   */
+  originSecret?: string;
 }
 
 type Env = { Variables: { ip: string } };
 
 const WRITE_TOKEN_HEADER = 'x-write-token';
 const ADMIN_KEY_HEADER = 'x-admin-key';
+const ORIGIN_VERIFY_HEADER = 'x-origin-verify';
 
 /* ---------- 小工具 ---------- */
 
@@ -76,14 +83,26 @@ function makeRevision(
   };
 }
 
-/** 從 CloudFront / API Gateway / 本機取得使用者 IP，供 rate limit 用。 */
-function clientIp(c: Context<Env>): string {
-  const cf = c.req.header('cloudfront-viewer-address');
-  if (cf) return cf.replace(/:\d+$/, '');
-  const xff = c.req.header('x-forwarded-for');
-  if (xff) return xff.split(',')[0]!.trim();
+/**
+ * 從 CloudFront / API Gateway / 本機取得使用者 IP，供 rate limit 用。
+ * API Gateway 的原生網址是公開可達的，任何人都能自己填 CloudFront-Viewer-Address 或 X-Forwarded-For，
+ * 所以這兩個 header 只在請求確實來自我們的 CloudFront（X-Origin-Verify 對得上）時才採信；
+ * 其他情況用 API Gateway 記錄的 sourceIp——直接打 API Gateway 的人，那就是他自己的 IP。
+ */
+function clientIp(c: Context<Env>, originSecret: string | undefined): string {
+  const viaCloudFront = !originSecret || c.req.header(ORIGIN_VERIFY_HEADER) === originSecret;
+  if (viaCloudFront) {
+    const cf = c.req.header('cloudfront-viewer-address');
+    if (cf) return cf.replace(/:\d+$/, '');
+  }
   const env = c.env as { requestContext?: { http?: { sourceIp?: string } } } | undefined;
-  return env?.requestContext?.http?.sourceIp ?? 'local';
+  const source = env?.requestContext?.http?.sourceIp;
+  if (source) return source;
+  if (viaCloudFront) {
+    const xff = c.req.header('x-forwarded-for');
+    if (xff) return xff.split(',')[0]!.trim();
+  }
+  return 'local';
 }
 
 const PERSON_KEY = /^persons\/([A-Za-z0-9]{6})\/([A-Za-z0-9]{6})(_t)?\.(jpg|webp)$/;
@@ -97,7 +116,7 @@ export function createApp(deps: AppDeps) {
   const app = new Hono<Env>();
 
   app.use('*', async (c, next) => {
-    c.set('ip', clientIp(c));
+    c.set('ip', clientIp(c, deps.originSecret));
     await next();
   });
 
