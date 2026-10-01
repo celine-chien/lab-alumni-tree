@@ -17,7 +17,7 @@
     "admin": "pnpm --filter @vsp/scripts admin"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "typescript": "^7.0.2"
   },
   "license": "MIT",
   "repository": {
