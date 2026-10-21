@@ -28,13 +28,13 @@ importers:
         version: 3.1136.0(@aws-sdk/client-dynamodb@3.1136.0)
       '@hono/node-server':
         specifier: ^1.13.0
-        version: 1.19.17(hono@4.13.8)
+        version: 1.19.17(hono@4.13.11)
       '@vsp/shared':
         specifier: workspace:*
         version: link:../shared
       hono:
-        specifier: ^4.6.0
-        version: 4.13.8
+        specifier: ^4.13.11
+        version: 4.13.11
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1607,8 +1607,8 @@ packages:
     resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
     hasBin: true
 
-  hono@4.13.8:
-    resolution: {integrity: sha512-/Gng7NfoykZl2pjukW5Z6+8Yxm3BPRf86GTbQnt0SbySkvax4fyL4H3HhY1cCpBGmiW9XDRFzRV+CXK2W8QudQ==}
+  hono@4.13.11:
+    resolution: {integrity: sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -3170,9 +3170,9 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@hono/node-server@1.19.17(hono@4.13.8)':
+  '@hono/node-server@1.19.17(hono@4.13.11)':
     dependencies:
-      hono: 4.13.8
+      hono: 4.13.11
 
   '@img/colour@1.1.0':
     optional: true
@@ -4041,7 +4041,7 @@ snapshots:
 
   he@1.2.0: {}
 
-  hono@4.13.8: {}
+  hono@4.13.11: {}
 
   html-escaper@3.0.3: {}
 
