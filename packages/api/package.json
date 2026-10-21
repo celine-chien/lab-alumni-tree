@@ -22,7 +22,7 @@
     "@aws-sdk/lib-dynamodb": "^3.650.0",
     "@hono/node-server": "^1.13.0",
     "@vsp/shared": "workspace:*",
-    "hono": "^4.6.0",
+    "hono": "^4.13.11",
     "zod": "^3.23.8"
   },
   "devDependencies": {
